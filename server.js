@@ -384,6 +384,32 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Add new socket event handler for resetting room phase
+  socket.on("resetRoomPhase", ({ roomCode }) => {
+    try {
+      const room = rooms.get(roomCode);
+      if (!room) return;
+      const participant = room.participants.find((p) => p.id === socket.id);
+      if (!participant || !participant.isHost) {
+        console.error(
+          `Non-host ${socket.id} attempted to reset room phase for room ${roomCode}`
+        );
+        socket.emit("error", "Only host can reset room phase");
+        return;
+      }
+      console.log(`Resetting room phase for room ${roomCode}`);
+      room.phase = "presentation";
+      room.remainingTime = room.totalDuration * 60;
+      room.lastUpdated = Date.now();
+      io.to(roomCode).emit("phaseTransition", { phase: "presentation" });
+      io.to(roomCode).emit("updateRoomState", room);
+      console.log(`Reset room phase, room state:`, JSON.stringify(room));
+    } catch (err) {
+      console.error(`Error in resetRoomPhase: ${err.message}`);
+      socket.emit("error", "Failed to reset room phase");
+    }
+  });
+
   socket.on("toggleLock", ({ roomCode }) => {
     try {
       const room = rooms.get(roomCode);
@@ -418,17 +444,32 @@ io.on("connection", (socket) => {
       for (const [roomCode, room] of rooms) {
         const participant = room.participants.find((p) => p.id === socket.id);
         if (participant) {
-          participant.isActive = false;
-          console.log(
-            `Marked participant ${participant.name} as inactive in room ${roomCode}`
-          );
-          room.lastUpdated = Date.now();
-          io.to(roomCode).emit("updateRoomState", room);
-          console.log(`Room state after disconnect:`, JSON.stringify(room));
+          // Don't mark as inactive immediately, wait for a grace period
+          const disconnectTimeout = setTimeout(() => {
+            if (!socket.connected) {
+              participant.isActive = false;
+              console.log(
+                `Marked participant ${participant.name} as inactive in room ${roomCode} after timeout`
+              );
+              room.lastUpdated = Date.now();
+              io.to(roomCode).emit("updateRoomState", room);
+            }
+          }, 10000); // 10 second grace period
+
+          // Store the timeout ID on the socket for cleanup
+          socket.disconnectTimeout = disconnectTimeout;
         }
       }
     } catch (err) {
       console.error(`Error in disconnect: ${err.message}`);
+    }
+  });
+
+  socket.on("connect", () => {
+    // Clear any pending disconnect timeouts
+    if (socket.disconnectTimeout) {
+      clearTimeout(socket.disconnectTimeout);
+      socket.disconnectTimeout = null;
     }
   });
 });
