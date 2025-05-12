@@ -28,15 +28,16 @@ process.on("uncaughtException", (err) => {
 app.get("/debug/rooms", (req, res) => {
   try {
     console.log(`[${new Date().toISOString()}] GET /debug/rooms requested`);
-    const roomsData = Array.from(rooms.entries()).map(([roomCode, room]) => ({
-      roomCode,
-      roomName: room.roomName,
-      totalDuration: room.totalDuration,
-      remainingTime: room.remainingTime,
-      phase: room.phase,
-      isRunning: room.isRunning,
-      isLocked: room.isLocked,
+    const roomsData = Array.from(rooms.entries()).map(([code, room]) => ({
+      code,
+      name: room.roomName,
       participants: room.participants,
+      remainingTime: room.remainingTime,
+      isLocked: room.isLocked,
+      isRunning: room.isRunning,
+      phase: room.phase,
+      totalDuration: room.totalDuration,
+      questionDuration: room.questionDuration,
       checkpoints: room.checkpoints,
       lastUpdated: room.lastUpdated,
     }));
