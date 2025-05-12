@@ -7,7 +7,7 @@ const { Server } = require("socket.io");
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Enable CORS
+// Enable CORS new
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "*",
