@@ -1,12 +1,13 @@
 const express = require("express");
 const { createServer } = require("http");
 const { Server } = require("socket.io");
+require("dotenv").config();
 
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "*", // Allow all origins for development
+    origin: process.env.FRONTEND_URL || "*",
     methods: ["GET", "POST"],
   },
   reconnection: true,
@@ -23,6 +24,11 @@ process.on("uncaughtException", (err) => {
     `[${new Date().toISOString()}] Uncaught Exception: ${err.message}`
   );
   console.error(err.stack);
+});
+
+// Health check endpoint for Coolify
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 app.get("/debug/rooms", (req, res) => {
@@ -96,8 +102,7 @@ io.on("connection", (socket) => {
   socket.on("joinRoom", ({ roomCode, userName }) => {
     try {
       console.log(
-        `[${new Date().toISOString()}] Join room request for ${roomCode} by ${userName} (socket: ${
-          socket.id
+        `[${new Date().toISOString()}] Join room request for ${roomCode} by ${userName} (socket: ${socket.id
         })`
       );
       const room = rooms.get(roomCode);
@@ -279,8 +284,7 @@ io.on("connection", (socket) => {
       if (participant) {
         participant.isReady = !participant.isReady;
         console.log(
-          `User ${participant.name} is now ${
-            participant.isReady ? "ready" : "not ready"
+          `User ${participant.name} is now ${participant.isReady ? "ready" : "not ready"
           }`
         );
         room.lastUpdated = Date.now();
@@ -475,6 +479,7 @@ io.on("connection", (socket) => {
   });
 });
 
-httpServer.listen(3001, "0.0.0.0", () => {
-  console.log("Socket.IO server running on http://0.0.0.0:3001");
+const PORT = process.env.PORT || 3001;
+httpServer.listen(PORT, "0.0.0.0", () => {
+  console.log(`Socket.IO server running on http://0.0.0.0:${PORT}`);
 });
